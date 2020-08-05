@@ -215,6 +215,7 @@ public interface DeliveryService {
 
 # Order.java (Entity)
 
+```
     @PostPersist
     public void onPostPersist(){
 
@@ -245,7 +246,7 @@ mvn spring-boot:run
 #주문처리
 http localhost:8081/orders orderId=1111 productId=1111 qty=10   #success
 http localhost:8081/orders orderId=2222 productId=2222 qty=20   #success
-```
+
 
 
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
@@ -312,22 +313,24 @@ public class PolicyHandler{
         }
     }
 
-
-inventory 에서는 완전히 분리되어있으며, 이벤트 수신에 따라 처리되기 때문에, 재고시스템이 유지보수로 인해 잠시 내려간 상태라도 주문을 받는데 문제가 없다:
 ```
+
+inventory 에서는 완전히 분리되어있으며, 이벤트 수신에 따라 처리되기 때문에, 재고시스템이 유지보수로 인해 잠시 내려간 상태라도 주문을 받는데 문제가 없다
+
+
 # inventory 서비스를 잠시 내려놓음 
 
-#주문처리
+# 주문처리
 http localhost:8081/orders orderId=1111 productId=1111 qty=10   #success
 http localhost:8081/orders orderId=2222 productId=2222 qty=20   #success
 
-#주문상태 확인
+# 주문상태 확인
 http localhost:8081/orders     # 주문 처리됨
 
-#inventory 서비스 기동
+# inventory 서비스 기동
 mvn spring-boot:run
 
-#inventory 상태 확인
+# inventory 상태 확인
 http localhost:8085/inventories/1 재고변경 확인
 ```
 
