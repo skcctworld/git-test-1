@@ -182,15 +182,15 @@ http localhost:8085/inventories productId=1111 invQty=100
 http localhost:8085/inventories/1
 
 
-동기식 호출 처리
+## 동기식 호출 처리
 
-분석단계에서의 조건 중 하나로 주문(order) -> 배송(delivery) 간의 호출은 동기식 일관성을 유지하는 트랜잭션으로 처리하기로 하였다. 호출 프로토콜은 이미 앞서 Rest Repository 에 의해 노출되어있는 REST 서비스를 FeignClient 를 이용하여 호출하도록 한다.
+분석단계에서의 조건 중 하나로 주문(order) -> 배송(delivery) 간의 호출은 동기식 일관성을 유지하는 트랜잭션으로 처리하기로 하였다. 호출 프로토콜은 이미 앞서 Rest Repository 에 의해 노출되어있는 REST 서비스를 FeignClient 를 이용하여 호출하도록 한다. 
 
-delivery 서비스를 호출하기 위하여 Stub과 (FeignClient) 를 이용하여 Service 대행 인터페이스 (Proxy) 를 구현
+- delivery 서비스를 호출하기 위하여 Stub과 (FeignClient) 를 이용하여 Service 대행 인터페이스 (Proxy) 를 구현 
 
+```
 # (order) deliveryService.java
 package maskShop3.external;
-
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -202,40 +202,41 @@ public interface DeliveryService {
     @RequestMapping(method= RequestMethod.POST, path="/deliveries")
     public void update(@RequestBody Delivery delivery);
 }
-
-
 - 주문을 받은 직후(@PostPersist) delivery 서비스를 요청하도록 처리
+```
+# Order.java (Entity)
 
-Order.java (Entity)
-@PostPersist
-public void onPostPersist(){
+    @PostPersist
+    public void onPostPersist(){
 
-    // order -> delivery create
-    maskShop3.external.Delivery delivery = new maskShop3.external.Delivery();
-    delivery.setOrderId(getOrderId());
-    delivery.setStatus("ordered");
-    delivery.setProductId(getProductId());
-    delivery.setInvQty(getQty());
-    delivery.setId(getId()+10000);
-    OrderApplication.applicationContext.getBean(maskShop3.external.DeliveryService.class).update(delivery);
+        // order -> delivery create
+        maskShop3.external.Delivery delivery = new maskShop3.external.Delivery();
+        delivery.setOrderId(getOrderId());
+        delivery.setStatus("ordered");
+        delivery.setProductId(getProductId());
+        delivery.setInvQty(getQty());
+        delivery.setId(getId()+10000);
+        OrderApplication.applicationContext.getBean(maskShop3.external.DeliveryService.class).update(delivery);
 
-}
+    }
 
+```
 - 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, delivery 시스템이 장애가 나면 주문도 못받는다는 것을 확인:
-
-delivery 서비스를 잠시 내려놓음 (ctrl+c)
+```
+# delivery 서비스를 잠시 내려놓음 (ctrl+c)
 
 #주문처리
-http localhost:8081/orders orderId=1111 productId=1111 qty=10 #Fail
-http localhost:8081/orders orderId=2222 productId=2222 qty=20 #Fail
+http localhost:8081/orders orderId=1111 productId=1111 qty=10   #Fail
+http localhost:8081/orders orderId=2222 productId=2222 qty=20   #Fail
 
 #delivery 재기동
+cd 결제
 mvn spring-boot:run
 
 #주문처리
-http localhost:8081/orders orderId=1111 productId=1111 qty=10 #success
-http localhost:8081/orders orderId=2222 productId=2222 qty=20 #success
-
+http localhost:8081/orders orderId=1111 productId=1111 qty=10   #success
+http localhost:8081/orders orderId=2222 productId=2222 qty=20   #success
+```
 
 
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
@@ -245,32 +246,34 @@ delivery 가 발생한 후 inventory 에  재고를 업데이트 하는 이벤�
  
 - 이를 위하여 delivery 가 발생되었다는 도메인 이벤트를 카프카로 송출한다(Publish)
  
+```
 package fooddelivery;
 
-@entity
-@table(name="Delivery_table")
+@Entity
+@Table(name="Delivery_table")
 public class Delivery {
 
-@Id
-@GeneratedValue(strategy=GenerationType.AUTO)
-private Long id;
-private Long orderId;
-private String status;
-private Long productId;
-private Integer invQty;
+    @Id
+    @GeneratedValue(strategy=GenerationType.AUTO)
+    private Long id;
+    private Long orderId;
+    private String status;
+    private Long productId;
+    private Integer invQty;
 
-@PostPersist
-public void onPrePersist(){
+    @PostPersist
+    public void onPrePersist(){
 
-    DeliveryRegisterd deliveryRegisterd = new DeliveryRegisterd();
-    BeanUtils.copyProperties(this, deliveryRegisterd);
-    deliveryRegisterd.publish();
+        DeliveryRegisterd deliveryRegisterd = new DeliveryRegisterd();
+        BeanUtils.copyProperties(this, deliveryRegisterd);
+        deliveryRegisterd.publish();
 
- }
+    }
 }
+```
+- inventory 에서는 delivryRegister 이벤트에 대해서 이를 수신하여 자신의 정책을 처리하도록 PolicyHandler 를 구현한다:
 
-- inventory 에서는 deliveryRegister 이벤트에 대해서 이를 수신하여 자신의 정책을 처리하도록 PolicyHandler 를 구현한다:
-
+```
 package maskShop3;
 
 import maskShop3.config.kafka.KafkaProcessor;
@@ -281,26 +284,28 @@ import org.springframework.cloud.stream.annotation.StreamListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
 
-@service
+@Service
 public class PolicyHandler{
 
-@Autowired
-InventoryRepository inventoryRepository;
+    @Autowired
+    InventoryRepository inventoryRepository;
 
-@StreamListener(KafkaProcessor.INPUT)
-public void wheneverDeliveryRegisterd_Change(@Payload DeliveryRegisterd deliveryRegisterd){
+    @StreamListener(KafkaProcessor.INPUT)
+    public void wheneverDeliveryRegisterd_Change(@Payload DeliveryRegisterd deliveryRegisterd){
 
-    if(deliveryRegisterd.isMe()){
-    
-            System.out.println("##### listener INVENTORY INSERT ======================");
-            inventory.setProductId(deliveryRegisterd.getProductId());
-            inventory.setInvQty(deliveryRegisterd.getInvQty());
-            inventoryRepository.save(inventory);
+        if(deliveryRegisterd.isMe()){
+        
+                System.out.println("##### listener INVENTORY INSERT ======================");
+                inventory.setProductId(deliveryRegisterd.getProductId());
+                inventory.setInvQty(deliveryRegisterd.getInvQty());
+                inventoryRepository.save(inventory);
 
+        }
     }
-}
-inventory 에서는 완전히 분리되어있으며, 이벤트 수신에 따라 처리되기 때문에, 재고시스템이 유지보수로 인해 잠시 내려간 상태라도 주문을 받는데 문제가 없다:
 
+
+inventory 에서는 완전히 분리되어있으며, 이벤트 수신에 따라 처리되기 때문에, 재고시스템이 유지보수로 인해 잠시 내려간 상태라도 주문을 받는데 문제가 없다:
+```
 # inventory 서비스를 잠시 내려놓음 
 
 #주문처리
@@ -315,6 +320,7 @@ mvn spring-boot:run
 
 #inventory 상태 확인
 http localhost:8085/inventories/1 재고변경 확인
+```
 
 
 
