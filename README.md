@@ -356,6 +356,8 @@ delivery 에 배송정보가 변경되면 비동기 방식으로 inventory 에 �
 
 각 구현체들은 각자의 source repository 에 구성되었고, 사용한 CI/CD 플랫폼은 GCP를 사용하였다.
 
+![image](https://github.com/wjdwodnrdl/maskshop_team_final/blob/master/%EC%A0%9C%EB%AA%A9%20%EC%97%86%EC%9D%8C.png)
+
 
 ## Istio를 활용한 Circuit Breaker 설정
 
