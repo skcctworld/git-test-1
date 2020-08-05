@@ -22,6 +22,7 @@
     order 서비스가 과중되면 사용자를 잠시동안 받지 않고 잠시후에 하도록 유도한다  Circuit breaker
 1. 성능
     고객이 MyPage에서 주문정보를 확인할 수 있어야 한다  CQRS
+    주문, 주문취소가 발생할 때 마다 inventory 에 재고 수량이 변경되어야 한다. Event Driven
   
 
 # 분석/설계
@@ -58,15 +59,15 @@
 
 ![image](https://github.com/yslim83/git-test/blob/master/report_images_1/eventstorming_team_1_func.png)
 
-    - 고객이 마스크를 주문한다
-    - 배송팀에 주문내역이 전달된다
-    - 재고수량에서 주문수량만큼 차감된다
+    - 고객이 마스크를 주문한다 (OK)
+    - 배송팀에 주문내역이 전달된다 (OK)
+    - 재고수량에서 주문수량만큼 차감된다 (OK)
 
 ![image](https://github.com/yslim83/git-test/blob/master/report_images_1/eventstorming_team_2_func.png)
 
-    - 고객이 주문을 취소할 수 있다
-    - 주문이 취소되면 배송 상태값이 변경된다
-    - 주문이 취소되면 취소된 수량만큼 재고 수량이 증가한다 
+    - 고객이 주문을 취소할 수 있다 (OK)
+    - 주문이 취소되면 배송 상태값이 변경된다 (OK)
+    - 주문이 취소되면 취소된 수량만큼 재고 수량이 증가한다 (OK)
 
 
 ### 비기능 요구사항에 대한 검증
@@ -74,8 +75,9 @@
 ![image](https://user-images.githubusercontent.com/487999/79684184-5c9a9400-826a-11ea-8d87-2ed1e44f4562.png)
 
     - 마이크로 서비스를 넘나드는 시나리오에 대한 트랜잭션 처리
-        - 주문완료 시 배송정보 생성에 대해서는 Request-Response 방식 처리
+        - 주문완료 시 배송정보 생성에 대해서는 Request-Response 방식으로 처리
         - 배송정보 생성 완료 시 재고처리:  delivery 에서 inventory 마이크로서비스로 요청이 전달되는 과정에 있어서 inventory 마이크로 서비스가 별도의 배포주기를 가지기 때문에 Eventual Consistency 방식으로 트랜잭션 처리함.
+        - 주문취소는 inventory delivery 와 분리하여 Eventual Consistency 방식으로 트랜잭션 처리함.
         
 
 
@@ -113,7 +115,7 @@ mvn spring-boot:run
 ```
 
 DDD 의 적용
-각 서비스내에 도출된 핵심 Aggregate Root 객체를 Entity 로 선언하였다: (예시는 order 마이크로 서비스). 이때 가능한 현업에서 사용하는 언어 (유비쿼터스 랭귀지)를 그대로 사용하려고 노력했다.
+각 서비스내에 도출된 핵심 Aggregate Root 객체를 Entity 로 선언하였다 (예시: order 서비스)
 
 
 ```
@@ -130,6 +132,7 @@ private Long orderId;
 private Long productId;
 private Integer qty;
 private String type;
+
 public Long getId() {
 return id;
 }
@@ -187,13 +190,104 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 
 ```
 http POST acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders orderId=1111 productId=1111 qty=10
+
+
+http POST acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders orderId=1111 productId=1111 qty=10
+HTTP/1.1 201 Created
+Content-Type: application/json;charset=UTF-8
+Date: Wed, 05 Aug 2020 05:39:19 GMT
+Location: http://order:8080/orders/291
+transfer-encoding: chunked
+
+{
+    "_links": {
+        "order": {
+            "href": "http://order:8080/orders/291"
+        },
+        "self": {
+            "href": "http://order:8080/orders/291"
+        }
+    },
+    "orderId": 1111,
+    "productId": 1111,
+    "qty": 10,
+    "type": null
+}
+
+```
+- order, delivery, inventory 상태 확인
+
+```
+http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders
+http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/delieveries
+http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/inventories
+
+
+http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders/20
+HTTP/1.1 200 OK
+Content-Type: application/hal+json;charset=UTF-8
+Date: Wed, 05 Aug 2020 05:40:18 GMT
+transfer-encoding: chunked
+
+{
+    "_links": {
+        "order": {
+            "href": "http://order:8080/orders/20"
+        },
+        "self": {
+            "href": "http://order:8080/orders/20"
+        }
+    },
+    "orderId": 1,
+    "productId": 111,
+    "qty": 20,
+    "type": null
+}
+
+
+ http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/deliveries/20
+HTTP/1.1 200 OK
+Content-Type: application/hal+json;charset=UTF-8
+Date: Wed, 05 Aug 2020 05:40:42 GMT
+transfer-encoding: chunked
+
+{
+    "_links": {
+        "delivery": {
+            "href": "http://delivery:8080/deliveries/20"
+        },
+        "self": {
+            "href": "http://delivery:8080/deliveries/20"
+        }
+    },
+    "invQty": 20,
+    "orderId": 1,
+    "productId": 111,
+    "status": "ordered"
+    
+    http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/inventories
+HTTP/1.1 200 OK
+Content-Type: application/hal+json;charset=UTF-8
+Date: Wed, 05 Aug 2020 05:41:15 GMT
+transfer-encoding: chunked
+
+{
+    "_embedded": {
+        "inventories": [
+            {
+               "_links": {
+                    "inventory": {
+                        "href": "http://inventory:8080/inventories/1"
+                    },
+                    "self": {
+                        "href": "http://inventory:8080/inventories/1"
+                    }
+                },
+                "invQty": 0,
+                "productId": 1111
+            },
 ```
 
-- order 상태 확인
-
-```
-http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders/1
-```
 
 - order 서비스의 취소처리
 
@@ -201,10 +295,51 @@ http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080
 http PATCH acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders/1 type="cancel"
 ```
 
-- order 상태 확인
+- order. delivery, inventory 상태 확인
 
 ```
-http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders/1
+ http PATCH acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders/1 type="cancel"
+HTTP/1.1 200 OK
+Content-Type: application/json;charset=UTF-8
+Date: Wed, 05 Aug 2020 05:42:54 GMT
+transfer-encoding: chunked
+
+{
+    "_links": {
+        "order": {
+            "href": "http://order:8080/orders/1"
+        },
+        "self": {
+            "href": "http://order:8080/orders/1"
+        }
+    },
+    "orderId": 1,
+    "productId": 111,
+    "qty": 20,
+    "type": "cancel"
+    
+    
+     http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/inventories
+HTTP/1.1 200 OK
+Content-Type: application/hal+json;charset=UTF-8
+Date: Wed, 05 Aug 2020 05:44:11 GMT
+transfer-encoding: chunked
+
+{
+    "_embedded": {
+        "inventories": [
+            {
+                "_links": {
+                    "inventory": {
+                        "href": "http://inventory:8080/inventories/1"
+                    },
+                    "self": {
+                        "href": "http://inventory:8080/inventories/1"
+                    }
+                },
+                "invQty": 100,
+                "productId": 1111
+            },
 ```
 
 # 폴리글랏 퍼시스턴스
@@ -383,7 +518,9 @@ delivery 에 배송정보가 변경되면 비동기 방식으로 inventory 에 �
 
 ## CI/CD 설정
 
-각 구현체들은 각자의 source repository 에 구성되었고, 사용한 CI/CD 플랫폼은 GCP를 사용하였다.
+Githu의 소스를 빌드/패키징 하여 docker image 로 변경
+docker image 를 ECR 로 업로드
+업로드 된 IMAGE 를 EKS 에 
 
 ![image](https://github.com/wjdwodnrdl/maskshop_team_final/blob/master/%EC%A0%9C%EB%AA%A9%20%EC%97%86%EC%9D%8C.png)
 
