@@ -354,3 +354,21 @@ order    1         4         1            1           1m
 :
 ```
 
+
+Isitio를 활용한 Circuit Breaker 설정
+order, delivery 서비스에 istio 적용 image
+
+https://github.com/DalkialKim/git-test/blob/master/1.jpg
+
+delivery에 Circuit Breaker 적용
+
+ㅇ istio 에서 DestinationRule을 설정하여 트래픽 증가에 따라 circuit break를 작동시킴 ㅇ http1MaxPendingRequests 설정을 변경하여 최대 가능한 요청건수 설정 -> 테스트를 위해 1로 설정
+
+image
+
+seige툴로 부하 발생 ㅇ -c 옵션으로 사용자를 2명으로 설정하고, -t 옵션으로 10초 동안 발생 ㅇ http1MaxPendingRequests: 1 로 설정되어있기 때문에 2명의 사용자가 요청시 1개의 요청은 차단되는 것을 확인 가능
+ㅇCircuit Breaker 적용 전 : 정상처리 image image
+
+ㅇCircuit Breaker 적용 후 : 차단됨 image
+
+
