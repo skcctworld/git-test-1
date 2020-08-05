@@ -347,19 +347,19 @@ inventory 에서는 완전히 분리되어있으며, 이벤트 수신에 따라 
 # 주문처리
 
 ```
-http localhost:8081/orders orderId=1111 productId=1111 qty=10   #success
-http localhost:8081/orders orderId=2222 productId=2222 qty=20   #success
+http POST acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders orderId=1111 productId=1111 qty=10   #success
+http POST acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders orderId=2222 productId=2222 qty=20   #success
 ```
 
 
 # 주문상태 확인
-http localhost:8081/orders     # 주문 처리됨
+http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders     # 주문 처리됨
 
 # inventory 서비스 기동
 mvn spring-boot:run
 
 # inventory 상태 확인
-http localhost:8085/inventories/1 재고변경 확인
+http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/inventories/1  #재고변경 확인
 
 
 # 비동기 호출 (2. 주문취소)
