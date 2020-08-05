@@ -7,6 +7,7 @@
 1. 고객이 주문을 취소할 수 있다
 1. 주문이 취소되면 배송이 취소된다
 1. 주문이 취소되면 재고가 변경된다
+1. myPage 에서 주문내역을 조회할 수 있다.
 
 
 비기능적 요구사항
@@ -185,26 +186,32 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 - order 서비스의 주문처리
 
 ```
-http POST localhost:8081/orders orderId=1111 productId=1111 qty=10
+http POST acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders orderId=1111 productId=1111 qty=10
 ```
 
 - order 상태 확인
 
 ```
-http localhost:8081/orders/1
+http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders/1
 ```
 
 - order 서비스의 취소처리
 
 ```
-http PATCH localhost:8081/orders/1 type="cancel"
+http PATCH acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders/1 type="cancel"
 ```
 
 - order 상태 확인
 
 ```
-http localhost:8081/orders/1
+http acf49635abb1c462c9da32cf6e14e749-276510094.us-east-2.elb.amazonaws.com:8080/orders/1
 ```
+
+# 폴리글랏 퍼시스턴스
+각 서비스에 모두 H2 메모리DB를 적용하였다.
+
+# 폴리글랏 프로그래밍
+각 서비스는 모두 java 로 구현하였다.
 
 ## 동기식 호출 처리
 
