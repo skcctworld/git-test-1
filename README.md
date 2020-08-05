@@ -358,7 +358,7 @@ order    1         4         1            1           1m
 Isitio를 활용한 Circuit Breaker 설정
 order, delivery 서비스에 istio 적용 image
 
-https://github.com/DalkialKim/git-test/blob/master/1.jpg
+![image](https://github.com/DalkialKim/git-test/blob/master/1.jpg)
 
 delivery에 Circuit Breaker 적용
 
