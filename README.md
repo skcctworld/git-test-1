@@ -318,29 +318,35 @@ http localhost:8085/inventories/1 재고변경 확인
 
 
 
-운영
+# 운영
 
-CI/CD 설정
+## CI/CD 설정
+
 각 구현체들은 각자의 source repository 에 구성되었고, 사용한 CI/CD 플랫폼은 GCP를 사용하였다.
 
-오토스케일 아웃
-주문요청 폭주에 대비하여 자동화된 확장 기능을 적용하고자 한다.
+### 오토스케일 아웃
 
-order 서비스에 대한 replica 를 동적으로 늘려주도록 HPA 를 설정한다. 설정은 CPU 사용량이 15프로를 넘어서면 replica 를 10개까지 늘려준다:
+주문요청 폭주에 대비하여 자동화된 확장 기능을 적용하고자 한다. 
 
+
+- order 서비스에 대한 replica 를 동적으로 늘려주도록 HPA 를 설정한다. 설정은 CPU 사용량이 15프로를 넘어서면 replica 를 10개까지 늘려준다:
+```
 kubectl autoscale deploy order --min=1 --max=10 --cpu-percent=15
-
-워크로드를 2분 동안 걸어준다.
+```
+- 워크로드를 2분 동안 걸어준다.
+```
 siege -c100 -t120S -r10 --content-type "application/json" 'http://order:8080/orders POST {"productId":1, "orderId":"1", "qty":"1000"}'
-
-
-오토스케일이 어떻게 되고 있는지 모니터링을 걸어둔다:
+```
+- 오토스케일이 어떻게 되고 있는지 모니터링을 걸어둔다:
+```
 kubectl get deploy order -w
-
-어느정도 시간이 흐른 후 (약 30초) 스케일 아웃이 벌어지는 것을 확인할 수 있다:
-
+```
+- 어느정도 시간이 흐른 후 (약 30초) 스케일 아웃이 벌어지는 것을 확인할 수 있다:
+```
 NAME    DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 order     1         1         1            1           17s
 order    1         2         1            1           45s
 order    1         4         1            1           1m
 :
+```
+
