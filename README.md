@@ -12,7 +12,10 @@
 비기능적 요구사항
 1. 트랜잭션
     배송팀에 할당되지 않은 주문건은 주문이 성립되지 않아야 한다  Sync 호출 
+    
 1. 장애격리
+    inventory 서비스가 점검중이어도 주문은 받을 수 있어야 하고, delivery 에 배송정보가 생성 되어야 한다  Async (event-driven), Eventual Consistency
+    delivery, inventory 가 점검중이도, 주문취소는 가능해야 한다. Async (event-driven), Eventual Consistency
     order 서비스가 과중되면 사용자를 잠시동안 받지 않고 잠시후에 하도록 유도한다  Circuit breaker
 1. 성능
     고객이 MyPage에서 주문정보를 확인할 수 있어야 한다  CQRS
@@ -174,19 +177,19 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 
 - order 서비스의 주문처리
 
-http localhost:8081/orders orderId=1111 productId=1111 qty=10
+http POST localhost:8081/orders orderId=1111 productId=1111 qty=10
 
 - order 상태 확인
 
 http localhost:8081/orders/1
 
-- inventory 서비스의 재고처리
+- order 서비스의 취소처리
 
-http localhost:8085/inventories productId=1111 invQty=100
+http PATCH localhost:8081/orders/1 type="cancel"
 
-- inventoryu 상태 확인
+- order 상태 확인
 
-http localhost:8085/inventories/1
+http localhost:8081/orders/1
 
 
 ## 동기식 호출 처리
@@ -213,9 +216,10 @@ public interface DeliveryService {
 ```
 주문을 받은 직후(@PostPersist) delivery 서비스를 요청하도록 처리
 
-# Order.java (Entity)
 
 ```
+# Order.java (Entity)
+
     @PostPersist
     public void onPostPersist(){
 
@@ -236,14 +240,15 @@ public interface DeliveryService {
 
 # delivery 서비스를 내려놓음
 
-#주문처리
+# 주문처리
+
 http localhost:8081/orders orderId=1111 productId=1111 qty=10   #Fail
 http localhost:8081/orders orderId=2222 productId=2222 qty=20   #Fail
 
-#delivery 재기동
+# delivery 재기동
 mvn spring-boot:run
 
-#주문처리
+# 주문처리
 http localhost:8081/orders orderId=1111 productId=1111 qty=10   #success
 http localhost:8081/orders orderId=2222 productId=2222 qty=20   #success
 
@@ -251,6 +256,7 @@ http localhost:8081/orders orderId=2222 productId=2222 qty=20   #success
 
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
 
+# 비동기 호출 (1. 주문)
 
 delivery 가 발생한 후 inventory 에  재고를 업데이트 하는 이벤트는 동기식이 아니라 비 동기식으로 처리하여 상점 시스템의 처리를 위하여 주문이 블로킹 되지 않아도록 처리한다.
  
@@ -332,19 +338,23 @@ mvn spring-boot:run
 
 # inventory 상태 확인
 http localhost:8085/inventories/1 재고변경 확인
-```
+
+
+# 비동기 호출 (2. 주문취소)
+
+orderCancel 이 발생한 후 delivery 에  상태를 업데이트 하는 이벤트는 동기식이 아니라 비 동기식으로 처리하여 주문취소가 블로킹 되지 않아도록 처리한다.
+ 
+- 이를 위하여 orderCancel 이 발생되었다는 도메인 이벤트를 카프카로 송출한다(Publish)
+delivery 에 배송정보가 변경되면 비동기 방식으로 inventory 에 재고 변경을 처리한다.
+- 이를 위하여 deliveryCancel 이 발생되었다는 도메인 이벤트를 카프카고 송출한다. (publish)
 
 
 
 # 운영
 
-## CI/CD 설정
-
-각 구현체들은 각자의 source repository 에 구성되었고, 사용한 CI/CD 플랫폼은 GCP를 사용하였다.
 
 
-
-## Isitio를 활용한 Circuit Breaker 설정
+## Istio를 활용한 Circuit Breaker 설정
 
 order, delivery 서비스에 istio 적용 
 
