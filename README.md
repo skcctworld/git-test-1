@@ -108,6 +108,9 @@ mvn spring-boot:run
 
 DDD 의 적용
 각 서비스내에 도출된 핵심 Aggregate Root 객체를 Entity 로 선언하였다: (예시는 order 마이크로 서비스). 이때 가능한 현업에서 사용하는 언어 (유비쿼터스 랭귀지)를 그대로 사용하려고 노력했다.
+
+
+
 package maskShop3;
 
 @entity
@@ -167,16 +170,18 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 }
 
 
-적용 후 REST API 의 테스트
+# 적용 후 REST API 의 테스트
 
-# order 서비스의 주문처리
+order 서비스의 주문처리
 http localhost:8081/orders orderId=1111 productId=1111 qty=10
-# order 상태 확인
+
+order 상태 확인
 http localhost:8081/orders/1
 
-# inventory 서비스의 재고처리
+inventory 서비스의 재고처리
 http localhost:8085/inventories productId=1111 invQty=100
-# inventoryu 상태 확인
+
+inventoryu 상태 확인
 http localhost:8085/inventories/1
 
 
