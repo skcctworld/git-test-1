@@ -15,7 +15,9 @@
     
 1. 장애격리
     inventory 서비스가 점검중이어도 주문은 받을 수 있어야 하고, delivery 에 배송정보가 생성 되어야 한다  Async (event-driven), Eventual Consistency
+    
     delivery, inventory 가 점검중이도, 주문취소는 가능해야 한다. Async (event-driven), Eventual Consistency
+    
     order 서비스가 과중되면 사용자를 잠시동안 받지 않고 잠시후에 하도록 유도한다  Circuit breaker
 1. 성능
     고객이 MyPage에서 주문정보를 확인할 수 있어야 한다  CQRS
