@@ -352,6 +352,9 @@ delivery 에 배송정보가 변경되면 비동기 방식으로 inventory 에 �
 
 # 운영
 
+## CI/CD 설정
+
+각 구현체들은 각자의 source repository 에 구성되었고, 사용한 CI/CD 플랫폼은 GCP를 사용하였다.
 
 
 ## Istio를 활용한 Circuit Breaker 설정
