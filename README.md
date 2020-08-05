@@ -18,10 +18,7 @@
     (.....)
 1. 성능
     1. 고객이 MyPage에서 주문정보를 확인할 수 있어야 한다  CQRS
-    (1. 배달상태가 바뀔때마다 카톡 등으로 알림을 줄 수 있어야 한다  Event driven)
-
-
-
+  
 
 # 분석/설계
 
@@ -73,9 +70,9 @@
 ![image](https://user-images.githubusercontent.com/487999/79684184-5c9a9400-826a-11ea-8d87-2ed1e44f4562.png)
 
     - 마이크로 서비스를 넘나드는 시나리오에 대한 트랜잭션 처리
-        - 고객 주문시 결제처리:  결제가 완료되지 않은 주문은 절대 받지 않는다는 경영자의 오랜 신념(?) 에 따라, ACID 트랜잭션 적용. 주문와료시 결제처리에 대해서는 Request-Response 방식 처리
-        - 결제 완료시 점주연결 및 배송처리:  App(front) 에서 Store 마이크로서비스로 주문요청이 전달되는 과정에 있어서 Store 마이크로 서비스가 별도의 배포주기를 가지기 때문에 Eventual Consistency 방식으로 트랜잭션 처리함.
-        - 나머지 모든 inter-microservice 트랜잭션: 주문상태, 배달상태 등 모든 이벤트에 대해 카톡을 처리하는 등, 데이터 일관성의 시점이 크리티컬하지 않은 모든 경우가 대부분이라 판단, Eventual Consistency 를 기본으로 채택함.
+        - 주문완료 시 배송정보 생성에 대해서는 Request-Response 방식 처리
+        - 배송정보 생성 완료 시 재고처리:  delivery 에서 inventory 마이크로서비스로 요청이 전달되는 과정에 있어서 inventory 마이크로 서비스가 별도의 배포주기를 가지기 때문에 Eventual Consistency 방식으로 트랜잭션 처리함.
+        
 
 
 
@@ -163,26 +160,37 @@ public void setType(String type) {
 }
 }
 
+
 Entity Pattern 과 Repository Pattern 을 적용하여 JPA 를 통하여 다양한 데이터소스 유형 (RDB or NoSQL) 에 대한 별도의 처리가 없도록 데이터 접근 어댑터를 자동 생성하기 위하여 Spring Data REST 의 RestRepository 를 적용하였다\
 package maskShop3;
 import org.springframework.data.repository.PagingAndSortingRepository;
-public interface OrderRepository extends PagingAndSortingRepository<Order, Long>{
+
+    public interface OrderRepository extends PagingAndSortingRepository<Order, Long>{
 }
+
+
 적용 후 REST API 의 테스트
+
 # order 서비스의 주문처리
 http localhost:8081/orders orderId=1111 productId=1111 qty=10
 # order 상태 확인
 http localhost:8081/orders/1
+
 # inventory 서비스의 재고처리
 http localhost:8085/inventories productId=1111 invQty=100
 # inventoryu 상태 확인
 http localhost:8085/inventories/1
+
+
 동기식 호출 처리
+
 분석단계에서의 조건 중 하나로 주문(order) -> 배송(delivery) 간의 호출은 동기식 일관성을 유지하는 트랜잭션으로 처리하기로 하였다. 호출 프로토콜은 이미 앞서 Rest Repository 에 의해 노출되어있는 REST 서비스를 FeignClient 를 이용하여 호출하도록 한다.
 
 delivery 서비스를 호출하기 위하여 Stub과 (FeignClient) 를 이용하여 Service 대행 인터페이스 (Proxy) 를 구현
+
 # (order) deliveryService.java
 package maskShop3.external;
+
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -194,7 +202,10 @@ public interface DeliveryService {
     @RequestMapping(method= RequestMethod.POST, path="/deliveries")
     public void update(@RequestBody Delivery delivery);
 }
+
+
 - 주문을 받은 직후(@PostPersist) delivery 서비스를 요청하도록 처리
+
 Order.java (Entity)
 @PostPersist
 public void onPostPersist(){
@@ -209,14 +220,16 @@ public void onPostPersist(){
     OrderApplication.applicationContext.getBean(maskShop3.external.DeliveryService.class).update(delivery);
 
 }
+
 - 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, delivery 시스템이 장애가 나면 주문도 못받는다는 것을 확인:
+
 delivery 서비스를 잠시 내려놓음 (ctrl+c)
+
 #주문처리
 http localhost:8081/orders orderId=1111 productId=1111 qty=10 #Fail
 http localhost:8081/orders orderId=2222 productId=2222 qty=20 #Fail
 
 #delivery 재기동
-cd 결제
 mvn spring-boot:run
 
 #주문처리
@@ -253,10 +266,10 @@ public void onPrePersist(){
     BeanUtils.copyProperties(this, deliveryRegisterd);
     deliveryRegisterd.publish();
 
-}
+ }
 }
 
-- inventory 에서는 delivryRegister 이벤트에 대해서 이를 수신하여 자신의 정책을 처리하도록 PolicyHandler 를 구현한다:
+- inventory 에서는 deliveryRegister 이벤트에 대해서 이를 수신하여 자신의 정책을 처리하도록 PolicyHandler 를 구현한다:
 
 package maskShop3;
 
@@ -302,7 +315,11 @@ mvn spring-boot:run
 
 #inventory 상태 확인
 http localhost:8085/inventories/1 재고변경 확인
+
+
+
 운영
+
 CI/CD 설정
 각 구현체들은 각자의 source repository 에 구성되었고, 사용한 CI/CD 플랫폼은 GCP를 사용하였다.
 
@@ -310,12 +327,18 @@ CI/CD 설정
 주문요청 폭주에 대비하여 자동화된 확장 기능을 적용하고자 한다.
 
 order 서비스에 대한 replica 를 동적으로 늘려주도록 HPA 를 설정한다. 설정은 CPU 사용량이 15프로를 넘어서면 replica 를 10개까지 늘려준다:
+
 kubectl autoscale deploy order --min=1 --max=10 --cpu-percent=15
+
 워크로드를 2분 동안 걸어준다.
 siege -c100 -t120S -r10 --content-type "application/json" 'http://order:8080/orders POST {"productId":1, "orderId":"1", "qty":"1000"}'
+
+
 오토스케일이 어떻게 되고 있는지 모니터링을 걸어둔다:
 kubectl get deploy order -w
+
 어느정도 시간이 흐른 후 (약 30초) 스케일 아웃이 벌어지는 것을 확인할 수 있다:
+
 NAME    DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 order     1         1         1            1           17s
 order    1         2         1            1           45s
