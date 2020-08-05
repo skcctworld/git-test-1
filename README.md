@@ -15,7 +15,7 @@
 1. 장애격리
     order 서비스가 과중되면 사용자를 잠시동안 받지 않고 잠시후에 하도록 유도한다  Circuit breaker
 1. 성능
-    1. 고객이 MyPage에서 주문정보를 확인할 수 있어야 한다  CQRS
+    고객이 MyPage에서 주문정보를 확인할 수 있어야 한다  CQRS
   
 
 # 분석/설계
@@ -200,8 +200,10 @@ public interface DeliveryService {
     @RequestMapping(method= RequestMethod.POST, path="/deliveries")
     public void update(@RequestBody Delivery delivery);
 }
-- 주문을 받은 직후(@PostPersist) delivery 서비스를 요청하도록 처리
+
 ```
+주문을 받은 직후(@PostPersist) delivery 서비스를 요청하도록 처리
+
 # Order.java (Entity)
 
     @PostPersist
@@ -219,16 +221,16 @@ public interface DeliveryService {
     }
 
 ```
+
 - 동기식 호출에서는 호출 시간에 따른 타임 커플링이 발생하며, delivery 시스템이 장애가 나면 주문도 못받는다는 것을 확인:
-```
-# delivery 서비스를 잠시 내려놓음 (ctrl+c)
+
+# delivery 서비스를 내려놓음
 
 #주문처리
 http localhost:8081/orders orderId=1111 productId=1111 qty=10   #Fail
 http localhost:8081/orders orderId=2222 productId=2222 qty=20   #Fail
 
 #delivery 재기동
-cd 결제
 mvn spring-boot:run
 
 #주문처리
@@ -328,6 +330,36 @@ http localhost:8085/inventories/1 재고변경 확인
 
 각 구현체들은 각자의 source repository 에 구성되었고, 사용한 CI/CD 플랫폼은 GCP를 사용하였다.
 
+
+
+## Isitio를 활용한 Circuit Breaker 설정
+
+order, delivery 서비스에 istio 적용 
+
+![image](https://github.com/DalkialKim/git-test/blob/master/1.jpg)
+
+
+delivery에 Circuit Breaker 적용
+
+ㅇ istio 에서 DestinationRule을 설정하여 트래픽 증가에 따라 circuit break를 작동시킴 
+ㅇ http1MaxPendingRequests 설정을 변경하여 최대 가능한 요청건수 설정 -> 테스트를 위해 1로 설정
+
+![image](https://github.com/DalkialKim/git-test/blob/master/2.jpg)
+
+
+seige툴로 부하 발생 
+ㅇ -c 옵션으로 사용자를 2명으로 설정하고, -t 옵션으로 10초 동안 발생 
+ㅇ http1MaxPendingRequests: 1 로 설정되어있기 때문에 2명의 사용자가 요청시 1개의 요청은 차단되는 것을 확인 가능
+ㅇCircuit Breaker 적용 전 : 정상처리 image 
+
+![image](https://github.com/DalkialKim/git-test/blob/master/4.jpg)
+![image](https://github.com/DalkialKim/git-test/blob/master/6.jpg)
+
+ㅇCircuit Breaker 적용 후 : 차단됨 image
+
+![image](https://github.com/DalkialKim/git-test/blob/master/3.jpg)
+
+
 ### 오토스케일 아웃
 
 주문요청 폭주에 대비하여 자동화된 확장 기능을 적용하고자 한다. 
@@ -355,23 +387,4 @@ order    1         4         1            1           1m
 ```
 
 
-Isitio를 활용한 Circuit Breaker 설정
-order, delivery 서비스에 istio 적용 image
 
-![image](https://github.com/DalkialKim/git-test/blob/master/1.jpg)
-
-delivery에 Circuit Breaker 적용
-
-ㅇ istio 에서 DestinationRule을 설정하여 트래픽 증가에 따라 circuit break를 작동시킴 ㅇ http1MaxPendingRequests 설정을 변경하여 최대 가능한 요청건수 설정 -> 테스트를 위해 1로 설정
-
-![image](https://github.com/DalkialKim/git-test/blob/master/2.jpg)
-
-seige툴로 부하 발생 ㅇ -c 옵션으로 사용자를 2명으로 설정하고, -t 옵션으로 10초 동안 발생 ㅇ http1MaxPendingRequests: 1 로 설정되어있기 때문에 2명의 사용자가 요청시 1개의 요청은 차단되는 것을 확인 가능
-ㅇCircuit Breaker 적용 전 : 정상처리 image 
-
-![image](https://github.com/DalkialKim/git-test/blob/master/4.jpg)
-![image](https://github.com/DalkialKim/git-test/blob/master/6.jpg)
-
-ㅇCircuit Breaker 적용 후 : 차단됨 image
-
-![image](https://github.com/DalkialKim/git-test/blob/master/3.jpg)
