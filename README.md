@@ -113,7 +113,7 @@ DDD 의 적용
 각 서비스내에 도출된 핵심 Aggregate Root 객체를 Entity 로 선언하였다: (예시는 order 마이크로 서비스). 이때 가능한 현업에서 사용하는 언어 (유비쿼터스 랭귀지)를 그대로 사용하려고 노력했다.
 
 
-
+```
 package maskShop3;
 
 @entity
@@ -164,33 +164,45 @@ public void setType(String type) {
 }
 }
 
+```
 
-Entity Pattern 과 Repository Pattern 을 적용하여 JPA 를 통하여 다양한 데이터소스 유형 (RDB or NoSQL) 에 대한 별도의 처리가 없도록 데이터 접근 어댑터를 자동 생성하기 위하여 Spring Data REST 의 RestRepository 를 적용하였다\
+Entity Pattern 과 Repository Pattern 을 적용하여 JPA 를 통하여 다양한 데이터소스 유형 (RDB or NoSQL) 에 대한 별도의 처리가 없도록 데이터 접근 어댑터를 자동 생성하기 위하여 Spring Data REST 의 RestRepository 를 적용하였다
+
+```
+
 package maskShop3;
 import org.springframework.data.repository.PagingAndSortingRepository;
 
     public interface OrderRepository extends PagingAndSortingRepository<Order, Long>{
 }
 
+```
 
 # 적용 후 REST API 의 테스트
 
 - order 서비스의 주문처리
 
+```
 http POST localhost:8081/orders orderId=1111 productId=1111 qty=10
+```
 
 - order 상태 확인
 
+```
 http localhost:8081/orders/1
+```
 
 - order 서비스의 취소처리
 
+```
 http PATCH localhost:8081/orders/1 type="cancel"
+```
 
 - order 상태 확인
 
+```
 http localhost:8081/orders/1
-
+```
 
 ## 동기식 호출 처리
 
@@ -242,16 +254,20 @@ public interface DeliveryService {
 
 # 주문처리
 
+```
 http localhost:8081/orders orderId=1111 productId=1111 qty=10   #Fail
 http localhost:8081/orders orderId=2222 productId=2222 qty=20   #Fail
+```
 
 # delivery 재기동
 mvn spring-boot:run
 
 # 주문처리
+
+```
 http localhost:8081/orders orderId=1111 productId=1111 qty=10   #success
 http localhost:8081/orders orderId=2222 productId=2222 qty=20   #success
-
+```
 
 
 ## 비동기식 호출 / 시간적 디커플링 / 장애격리 / 최종 (Eventual) 일관성 테스트
@@ -327,8 +343,12 @@ inventory 에서는 완전히 분리되어있으며, 이벤트 수신에 따라 
 # inventory 서비스를 잠시 내려놓음 
 
 # 주문처리
+
+```
 http localhost:8081/orders orderId=1111 productId=1111 qty=10   #success
 http localhost:8081/orders orderId=2222 productId=2222 qty=20   #success
+```
+
 
 # 주문상태 확인
 http localhost:8081/orders     # 주문 처리됨
